@@ -11,9 +11,9 @@ from tenacity import (
     before_sleep_log,
 )
 
+# 导入自定义日志模块（核心修复：补充logger导入）
+from app.core.logging import logger
 from app.core.config import settings
-
-logger = logging.getLogger(__name__)
 
 
 class AIClient:
@@ -27,7 +27,7 @@ class AIClient:
         stop=stop_after_attempt(settings.AI_API_MAX_RETRIES),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
+        before_sleep=before_sleep_log(logger, logging.WARNING),  # 使用导入的logger
         reraise=True,
     )
     async def get_ai_response(
@@ -35,23 +35,36 @@ class AIClient:
             message: str,
             robot_personality: Optional[str] = None,
             conversation_id: Optional[str] = None
-    ):
+    ) -> Dict[str, Any]:  # 补充返回值类型注解
         """
         调用AI API获取回复，包含重试机制
+        :param message: 用户输入消息
+        :param robot_personality: 机器人性格描述
+        :param conversation_id: 会话ID（用于日志追踪）
+        :return: 包含success/content/error的响应字典
         """
+        # 记录请求开始（DEBUG级别，开发环境可见）
+        logger.debug(
+            "开始调用AI API",
+            extra={
+                "conversation_id": conversation_id,
+                "message_length": len(message),
+                "robot_personality": robot_personality
+            }
+        )
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
-        # 构建请求体，加入机器人性格参数
+        # 构建请求体
         payload = {
             "messages": [{"role": "user", "content": message}],
             "temperature": 0.7,
             "max_tokens": 1000
         }
 
-        # 如果指定了机器人性格，添加到提示词中
         if robot_personality:
             payload["messages"].insert(
                 0,
@@ -68,6 +81,15 @@ class AIClient:
                 response.raise_for_status()
                 data = response.json()
 
+                # 记录请求成功（INFO级别）
+                logger.info(
+                    "AI API调用成功",
+                    extra={
+                        "conversation_id": conversation_id,
+                        "response_tokens": len(data["choices"][0]["message"]["content"])
+                    }
+                )
+
                 return {
                     "success": True,
                     "content": data["choices"][0]["message"]["content"],
@@ -75,26 +97,64 @@ class AIClient:
                 }
 
         except httpx.TimeoutException as e:
-            logger.error(f"AI API timeout for conversation {conversation_id}: {str(e)}")
-            raise
+            logger.error(
+                f"AI API请求超时",
+                extra={
+                    "conversation_id": conversation_id,
+                    "timeout": self.timeout,
+                    "error": str(e)
+                }
+            )
+            raise  # 重新抛出，触发重试
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"AI API returned error status {e.response.status_code} for conversation {conversation_id}: {e.response.text}")
-            return {
-                "success": False,
-                "content": None,
-                "error": f"AI API error: {e.response.status_code} - {e.response.text}"
-            }
+                f"AI API返回非2xx状态码",
+                extra={
+                    "conversation_id": conversation_id,
+                    "status_code": e.response.status_code,
+                    "response_text": e.response.text[:200],  # 截断过长的错误信息
+                    "error": str(e)
+                }
+            )
+            return await self.get_fallback_response(f"API错误：{e.response.status_code}")
         except Exception as e:
-            logger.error(f"Unexpected error calling AI API for conversation {conversation_id}: {str(e)}")
-            raise
+            logger.error(
+                f"AI API调用出现未知异常",
+                extra={
+                    "conversation_id": conversation_id,
+                    "error": str(e),
+                    "exception_type": type(e).__name__
+                },
+                exc_info=True  # 记录完整异常栈（便于调试）
+            )
+            return await self.get_fallback_response(f"系统异常：{str(e)}")
 
-    async def get_fallback_response(self, error):
+    async def get_fallback_response(self, error: str) -> Dict[str, Any]:
         """
         AI API调用失败时的备用回复
+        :param error: 错误信息
+        :return: 友好的失败响应
         """
+        logger.warning(
+            "使用备用回复",
+            extra={"error": error}
+        )
         return {
             "success": False,
             "content": "抱歉，我现在暂时无法回复你的消息，请稍后再试。",
             "error": error
         }
+
+
+# 测试代码（可选）
+async def test_ai_client():
+    client = AIClient()
+    result = await client.get_ai_response(
+        message="你好，介绍一下自己",
+        robot_personality="友好的助手",
+        conversation_id="test_001"
+    )
+    print(result)
+
+if __name__ == "__main__":
+    asyncio.run(test_ai_client())
