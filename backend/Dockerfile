@@ -40,8 +40,10 @@ EXPOSE 8000
 
 # 设置环境变量
 ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1  # 实时输出日志
-ENV PYTHONDONTWRITEBYTECODE=1  # 不生成pyc文件
+# 实时输出日志
+ENV PYTHONUNBUFFERED=1
+# 不生成pyc文件
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # 启动命令（生产环境使用gunicorn）
 CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000"]
