@@ -13,18 +13,18 @@ from tenacity import (
 
 # 导入自定义日志模块（核心修复：补充logger导入）
 from app.core.logging import logger
-from app.core.config import settings
+# from app.core.config import settings
 
 
 class AIClient:
     def __init__(self):
-        self.base_url = settings.AI_API_BASE_URL
-        self.api_key = settings.AI_API_KEY
-        self.timeout = settings.AI_API_TIMEOUT
-        self.max_retries = settings.AI_API_MAX_RETRIES
+        self.base_url = "https://api.openai.com/v1"
+        self.api_key = ""
+        self.timeout = 30
+        self.max_retries = 2
 
     @retry(
-        stop=stop_after_attempt(settings.AI_API_MAX_RETRIES),
+        stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
         before_sleep=before_sleep_log(logger, logging.WARNING),  # 使用导入的logger
@@ -35,7 +35,7 @@ class AIClient:
             message: str,
             robot_personality: Optional[str] = None,
             conversation_id: Optional[str] = None
-    ) -> Dict[str, Any]:  # 补充返回值类型注解
+    ):
         """
         调用AI API获取回复，包含重试机制
         :param message: 用户输入消息

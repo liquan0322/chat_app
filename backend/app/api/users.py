@@ -1,10 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 
-# ========== 核心：导入日志实例 ==========
 from app.core.logging import logger, api_logger, db_logger
-
 from app.db.session import get_async_db
 from app.crud.user import UserCRUD
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, ResponseModel
@@ -12,7 +9,6 @@ from app.core.security import get_password_hash
 
 # 创建路由实例
 router = APIRouter(prefix="/users", tags=["用户管理"])
-
 
 # 1. 创建用户接口
 @router.post(
@@ -25,7 +21,7 @@ async def create_user(
         user_in: UserCreate,
         db: AsyncSession = Depends(get_async_db)
 ):
-    # 记录接口请求（脱敏：不记录原始密码）
+    # 记录接口请求
     api_logger.info(f"接收到创建用户请求 - 用户名：{user_in.username}，邮箱：{user_in.email}")
     try:
         # 加密密码
@@ -51,7 +47,7 @@ async def create_user(
             data=UserResponse.from_orm(user)
         )
     except Exception as e:
-        # 记录异常（含堆栈）
+        # 记录异常
         api_logger.error(f"创建用户异常 - 用户名：{user_in.username}，异常信息：{str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="创建用户时发生服务器内部错误")
 
@@ -81,7 +77,6 @@ async def get_user_by_id(
             data=UserResponse.from_orm(user)
         )
     except HTTPException:
-        # 已知的404异常无需重复记录堆栈
         raise
     except Exception as e:
         api_logger.error(f"查询用户异常 - 用户ID：{user_id}，异常信息：{str(e)}", exc_info=True)
@@ -162,7 +157,7 @@ async def update_user(
         user_in: UserUpdate,
         db: AsyncSession = Depends(get_async_db)
 ):
-    # 记录更新请求（脱敏：不记录原始密码）
+    # 记录更新请求
     update_fields = []
     if user_in.username:
         update_fields.append("用户名")

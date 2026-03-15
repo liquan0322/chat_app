@@ -36,9 +36,11 @@ class ConversationTag(Base):
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    conversation_id = Column(Integer, ForeignKey("individual_conversations.id", ondelete="CASCADE"), nullable=False)
     tag = Column(String(50), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(Integer, ForeignKey("individual_conversations.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.current_timestamp())
+    updated_at = Column(DateTime(timezone=True), default=func.current_timestamp(), onupdate=func.current_timestamp())
 
     # 关联关系
     conversation = relationship("IndividualConversation", back_populates="conversation_tags")

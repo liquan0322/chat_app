@@ -1,20 +1,17 @@
-# 导入基础依赖（新增异步相关）
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.future import select  # 异步查询推荐使用select构造器
-# 导入项目已封装的异步数据库工具和模型
-from app.db.session import get_async_db  # 替换为异步数据库会话生成器
-from app.models.individual_conversation import (  # 请根据实际路径调整
+
+from app.core.logging import logger
+from app.db.session import get_async_db
+from app.models.individual_conversation import (
     IndividualConversation,
     ConversationTag,
     IndividualMessage
 )
 
-# ========== 核心：导入日志实例 ==========
-from app.core.logging import db_logger, logger
-
 
 # ------------------------------
-# 个人对话 CRUD（异步版 + 日志集成）
+# 个人对话 CRUD
 # ------------------------------
 class IndividualConversationCRUD:
     @staticmethod
@@ -26,64 +23,51 @@ class IndividualConversationCRUD:
         :param title: 对话标题
         :return: (对话对象/None, 提示信息)
         """
-        db_logger.debug(f"开始异步创建个人对话 - 用户ID：{user_id}，对话标题：{title}")
         try:
             conversation = IndividualConversation(
                 user_id=user_id,
                 title=title
             )
             db.add(conversation)
-            await db.commit()  # 异步提交
-            await db.refresh(conversation)  # 异步刷新获取自动生成字段
+            await db.commit()
+            await db.refresh(conversation)
 
-            db_logger.info(f"个人对话创建成功 - 对话ID：{conversation.id}，用户ID：{user_id}，标题：{title}")
             return conversation, "对话创建成功"
 
         except IntegrityError:
             await db.rollback()  # 异步回滚
-            db_logger.warning(f"创建个人对话失败 - 用户ID：{user_id}，标题：{title}，原因：外键约束异常（用户ID不存在）")
             return None, "外键约束异常（用户ID不存在）"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"创建个人对话数据库错误 - 用户ID：{user_id}，标题：{title}，异常信息：{str(e)}", exc_info=True)
             return None, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"创建个人对话未知异常 - 用户ID：{user_id}，标题：{title}，异常信息：{str(e)}", exc_info=True)
             return None, f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_conversation_by_id(db, conversation_id):
         """异步根据ID查询对话"""
-        db_logger.debug(f"开始异步查询个人对话 - 对话ID：{conversation_id}")
         try:
             result = await db.execute(
                 select(IndividualConversation).filter(IndividualConversation.id == conversation_id)
             )
             conversation = result.scalar_one_or_none()
 
-            if conversation:
-                db_logger.info(
-                    f"查询个人对话成功 - 对话ID：{conversation_id}，用户ID：{conversation.user_id}，标题：{conversation.title}")
-            else:
-                db_logger.warning(f"查询个人对话失败 - 对话ID：{conversation_id}，原因：对话不存在")
-
             return conversation
 
         except SQLAlchemyError as e:
-            db_logger.error(f"查询个人对话数据库错误 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
-            return None
+            await db.rollback()
+            return None, f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(f"查询个人对话未知异常 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
-            return None
+            await db.rollback()
+            return None, f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_user_conversations(db, user_id, skip=0, limit=100):
         """异步查询指定用户的所有对话（分页）"""
-        db_logger.info(f"开始异步分页查询用户对话 - 用户ID：{user_id}，跳过：{skip}，每页条数：{limit}")
         try:
             result = await db.execute(
                 select(IndividualConversation)
@@ -92,86 +76,64 @@ class IndividualConversationCRUD:
                 .limit(limit)
             )
             conversations = result.scalars().all()
-            conv_count = len(conversations)
-            conv_ids = [str(c.id) for c in conversations]
 
-            db_logger.info(
-                f"分页查询用户对话成功 - 用户ID：{user_id}，共查询到 {conv_count} 条对话：{','.join(conv_ids)}，跳过：{skip}，每页条数：{limit}")
             return conversations
 
         except SQLAlchemyError as e:
-            db_logger.error(
-                f"分页查询用户对话数据库错误 - 用户ID：{user_id}，跳过：{skip}，每页条数：{limit}，异常信息：{str(e)}",
-                exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(
-                f"分页查询用户对话未知异常 - 用户ID：{user_id}，跳过：{skip}，每页条数：{limit}，异常信息：{str(e)}",
-                exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"系统错误：{str(e)}"
 
     @staticmethod
     async def update_conversation_title(db, conversation_id, new_title):
         """异步更新对话标题"""
-        db_logger.info(f"开始异步更新对话标题 - 对话ID：{conversation_id}，新标题：{new_title}")
         try:
             # 异步主键查询
             conversation = await db.get(IndividualConversation, conversation_id)
             if not conversation:
-                db_logger.warning(f"更新对话标题失败 - 对话ID：{conversation_id}，原因：对话不存在")
                 return None, "对话不存在"
 
-            old_title = conversation.title
             conversation.title = new_title
             await db.commit()
             await db.refresh(conversation)
 
-            db_logger.info(f"更新对话标题成功 - 对话ID：{conversation_id}，旧标题：{old_title} → 新标题：{new_title}")
             return conversation, "对话标题更新成功"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"更新对话标题数据库错误 - 对话ID：{conversation_id}，新标题：{new_title}，异常信息：{str(e)}",
-                            exc_info=True)
             return None, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"更新对话标题未知异常 - 对话ID：{conversation_id}，新标题：{new_title}，异常信息：{str(e)}",
-                               exc_info=True)
             return None, f"系统错误：{str(e)}"
 
     @staticmethod
     async def delete_conversation(db, conversation_id):
         """异步删除对话（会级联删除关联的标签和消息）"""
-        db_logger.warning(f"开始异步删除个人对话 - 对话ID：{conversation_id}（级联删除标签/消息）")
         try:
             conversation = await db.get(IndividualConversation, conversation_id)
             if not conversation:
-                db_logger.warning(f"删除个人对话失败 - 对话ID：{conversation_id}，原因：对话不存在")
                 return False, "对话不存在"
 
             await db.delete(conversation)  # 异步删除
             await db.commit()
 
-            db_logger.info(
-                f"删除个人对话成功 - 对话ID：{conversation_id}，用户ID：{conversation.user_id}，已级联删除关联标签和消息")
             return True, "对话删除成功（关联标签/消息已级联删除）"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"删除个人对话数据库错误 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
             return False, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"删除个人对话未知异常 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
             return False, f"系统错误：{str(e)}"
 
 
 # ------------------------------
-# 对话标签 CRUD（异步版 + 日志集成）
+# 对话标签 CRUD
 # ------------------------------
 class ConversationTagCRUD:
     @staticmethod
@@ -179,7 +141,6 @@ class ConversationTagCRUD:
         """
         异步给对话添加标签（唯一约束：同一对话不能重复标签）
         """
-        db_logger.info(f"开始异步添加对话标签 - 对话ID：{conversation_id}，用户ID：{user_id}，标签：{tag}")
         try:
             conversation_tag = ConversationTag(
                 conversation_id=conversation_id,
@@ -190,55 +151,42 @@ class ConversationTagCRUD:
             await db.commit()
             await db.refresh(conversation_tag)
 
-            db_logger.info(f"添加对话标签成功 - 标签ID：{conversation_tag.id}，对话ID：{conversation_id}，标签：{tag}")
             return conversation_tag, "标签添加成功"
 
         except IntegrityError:
             await db.rollback()
-            db_logger.warning(
-                f"添加对话标签失败 - 对话ID：{conversation_id}，标签：{tag}，原因：该对话已添加此标签（标签不可重复）")
             return None, "该对话已添加此标签（标签不可重复）"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"添加对话标签数据库错误 - 对话ID：{conversation_id}，标签：{tag}，异常信息：{str(e)}",
-                            exc_info=True)
             return None, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"添加对话标签未知异常 - 对话ID：{conversation_id}，标签：{tag}，异常信息：{str(e)}",
-                               exc_info=True)
             return None, f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_conversation_tags(db, conversation_id):
         """异步查询指定对话的所有标签"""
-        db_logger.debug(f"开始异步查询对话标签 - 对话ID：{conversation_id}")
         try:
             result = await db.execute(
                 select(ConversationTag).filter(ConversationTag.conversation_id == conversation_id)
             )
             tags = result.scalars().all()
-            tag_count = len(tags)
-            tag_names = [t.tag for t in tags]
 
-            db_logger.info(
-                f"查询对话标签成功 - 对话ID：{conversation_id}，共查询到 {tag_count} 个标签：{','.join(tag_names)}")
             return tags
 
         except SQLAlchemyError as e:
-            db_logger.error(f"查询对话标签数据库错误 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(f"查询对话标签未知异常 - 对话ID：{conversation_id}，异常信息：{str(e)}", exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_user_tags(db, user_id):
         """异步查询指定用户的所有标签（去重）"""
-        db_logger.info(f"开始异步查询用户标签（去重）- 用户ID：{user_id}")
         try:
             result = await db.execute(
                 select(ConversationTag.tag)
@@ -247,24 +195,20 @@ class ConversationTagCRUD:
             )
             # 提取标签值（原同步返回的是元组列表，保持格式一致）
             tag_list = [(tag,) for tag in result.scalars().all()]
-            tag_count = len(tag_list)
-            tag_names = [t[0] for t in tag_list]
 
-            db_logger.info(f"查询用户标签成功 - 用户ID：{user_id}，共查询到 {tag_count} 个唯一标签：{','.join(tag_names)}")
             return tag_list
 
         except SQLAlchemyError as e:
-            db_logger.error(f"查询用户标签数据库错误 - 用户ID：{user_id}，异常信息：{str(e)}", exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(f"查询用户标签未知异常 - 用户ID：{user_id}，异常信息：{str(e)}", exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_conversations_by_tag(db, user_id, tag):
         """异步根据标签查询用户的对应对话（关联查询）"""
-        db_logger.info(f"开始异步按标签查询用户对话 - 用户ID：{user_id}，标签：{tag}")
         try:
             result = await db.execute(
                 select(IndividualConversation)
@@ -275,27 +219,20 @@ class ConversationTagCRUD:
                 )
             )
             conversations = result.scalars().all()
-            conv_count = len(conversations)
-            conv_ids = [str(c.id) for c in conversations]
 
-            db_logger.info(
-                f"按标签查询用户对话成功 - 用户ID：{user_id}，标签：{tag}，共查询到 {conv_count} 条对话：{','.join(conv_ids)}")
             return conversations
 
         except SQLAlchemyError as e:
-            db_logger.error(f"按标签查询用户对话数据库错误 - 用户ID：{user_id}，标签：{tag}，异常信息：{str(e)}",
-                            exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(f"按标签查询用户对话未知异常 - 用户ID：{user_id}，标签：{tag}，异常信息：{str(e)}",
-                               exc_info=True)
-            return []
+            await db.rollback()
+            return [], f"系统错误：{str(e)}"
 
     @staticmethod
     async def delete_conversation_tag(db, conversation_id, tag):
         """异步删除对话的指定标签"""
-        db_logger.warning(f"开始异步删除对话标签 - 对话ID：{conversation_id}，标签：{tag}")
         try:
             result = await db.execute(
                 select(ConversationTag)
@@ -306,43 +243,29 @@ class ConversationTagCRUD:
             )
             tag_obj = result.scalar_one_or_none()
             if not tag_obj:
-                db_logger.warning(f"删除对话标签失败 - 对话ID：{conversation_id}，标签：{tag}，原因：标签不存在")
                 return False, "标签不存在"
 
             await db.delete(tag_obj)
             await db.commit()
 
-            db_logger.info(f"删除对话标签成功 - 对话ID：{conversation_id}，标签：{tag}")
             return True, "标签删除成功"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"删除对话标签数据库错误 - 对话ID：{conversation_id}，标签：{tag}，异常信息：{str(e)}",
-                            exc_info=True)
             return False, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"删除对话标签未知异常 - 对话ID：{conversation_id}，标签：{tag}，异常信息：{str(e)}",
-                               exc_info=True)
             return False, f"系统错误：{str(e)}"
 
 
 # ------------------------------
-# 个人消息 CRUD（异步版 + 日志集成）
+# 个人消息 CRUD
 # ------------------------------
 class IndividualMessageCRUD:
     @staticmethod
     async def send_message(db, conversation_id, user_id, message, is_user_message, ai_error=None):
         """异步发送个人消息（用户/AI消息）"""
-        # 消息内容脱敏（避免日志过长）
-        msg_content = message[:50] + "..." if len(message) > 50 else message
-        sender_type = "用户" if is_user_message else "AI"
-        db_logger.info(
-            f"开始异步发送个人消息 - 对话ID：{conversation_id}，用户ID：{user_id}，"
-            f"发送方：{sender_type}，AI错误：{ai_error if ai_error else '无'}，消息内容：{msg_content}"
-        )
-
         try:
             msg = IndividualMessage(
                 conversation_id=conversation_id,
@@ -355,37 +278,23 @@ class IndividualMessageCRUD:
             await db.commit()
             await db.refresh(msg)
 
-            db_logger.info(f"发送个人消息成功 - 消息ID：{msg.id}，对话ID：{conversation_id}，发送方：{sender_type}")
             return msg, "消息发送成功"
 
         except IntegrityError:
             await db.rollback()
-            db_logger.warning(
-                f"发送个人消息失败 - 对话ID：{conversation_id}，用户ID：{user_id}，"
-                f"原因：外键约束异常（对话/用户ID不存在）"
-            )
             return None, "外键约束异常（对话/用户ID不存在）"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(
-                f"发送个人消息数据库错误 - 对话ID：{conversation_id}，用户ID：{user_id}，"
-                f"异常信息：{str(e)}", exc_info=True
-            )
             return None, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(
-                f"发送个人消息未知异常 - 对话ID：{conversation_id}，用户ID：{user_id}，"
-                f"异常信息：{str(e)}", exc_info=True
-            )
             return None, f"系统错误：{str(e)}"
 
     @staticmethod
     async def get_conversation_messages(db, conversation_id, skip=0, limit=200):
         """异步查询指定对话的所有消息（按时间正序）"""
-        db_logger.info(f"开始异步查询对话消息 - 对话ID：{conversation_id}，跳过：{skip}，每页条数：{limit}")
         try:
             result = await db.execute(
                 select(IndividualMessage)
@@ -395,55 +304,41 @@ class IndividualMessageCRUD:
                 .limit(limit)
             )
             messages = result.scalars().all()
-            msg_count = len(messages)
 
-            db_logger.info(
-                f"查询对话消息成功 - 对话ID：{conversation_id}，共查询到 {msg_count} 条消息，跳过：{skip}，每页条数：{limit}")
             return messages
 
         except SQLAlchemyError as e:
-            db_logger.error(
-                f"查询对话消息数据库错误 - 对话ID：{conversation_id}，跳过：{skip}，每页条数：{limit}，"
-                f"异常信息：{str(e)}", exc_info=True
-            )
-            return []
+            await db.rollback()
+            return [], f"数据库错误：{str(e)}"
 
         except Exception as e:
-            db_logger.critical(
-                f"查询对话消息未知异常 - 对话ID：{conversation_id}，跳过：{skip}，每页条数：{limit}，"
-                f"异常信息：{str(e)}", exc_info=True
-            )
-            return []
+            await db.rollback()
+            return [], f"系统错误：{str(e)}"
 
     @staticmethod
     async def delete_message(db, message_id):
         """异步删除单条消息"""
-        db_logger.warning(f"开始异步删除个人消息 - 消息ID：{message_id}")
         try:
             msg = await db.get(IndividualMessage, message_id)
             if not msg:
-                db_logger.warning(f"删除个人消息失败 - 消息ID：{message_id}，原因：消息不存在")
                 return False, "消息不存在"
 
             await db.delete(msg)
             await db.commit()
 
-            db_logger.info(f"删除个人消息成功 - 消息ID：{message_id}，对话ID：{msg.conversation_id}")
             return True, "消息删除成功"
 
         except SQLAlchemyError as e:
             await db.rollback()
-            db_logger.error(f"删除个人消息数据库错误 - 消息ID：{message_id}，异常信息：{str(e)}", exc_info=True)
             return False, f"数据库错误：{str(e)}"
 
         except Exception as e:
             await db.rollback()
-            db_logger.critical(f"删除个人消息未知异常 - 消息ID：{message_id}，异常信息：{str(e)}", exc_info=True)
             return False, f"系统错误：{str(e)}"
 
 
 # ------------------------------
-# 关联业务示例（异步版 + 日志集成）
+# 关联业务示例
 # ------------------------------
 async def test_conversation_business():
     """异步测试对话+标签+消息的关联业务流程"""

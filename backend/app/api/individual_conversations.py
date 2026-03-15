@@ -1,10 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
-# ========== 核心：导入日志实例 ==========
 from app.core.logging import api_logger, db_logger
-
 from app.db.session import get_async_db
 from app.crud.individual_conversation import (
     IndividualConversationCRUD,
@@ -17,6 +14,7 @@ from app.schemas.individual_conversation import (
     MessageCreate, MessageResponse,
     ResponseModel
 )
+from app.services.ai_client import AIClient
 
 router = APIRouter(prefix="/conversations", tags=["个人对话管理"])
 
@@ -48,6 +46,7 @@ async def create_conversation(
             message=msg,
             data=ConversationResponse.from_orm(conversation)
         )
+
     except HTTPException:
         raise
     except Exception as e:
@@ -327,7 +326,7 @@ async def send_message(
         message_in: MessageCreate,
         db: AsyncSession = Depends(get_async_db)
 ):
-    # 消息内容脱敏（避免日志过长/敏感信息）
+    # 消息内容脱敏
     msg_content = message_in.message[:50] + "..." if len(message_in.message) > 50 else message_in.message
     api_logger.info(
         f"接收到发送对话消息请求 - 对话ID：{message_in.conversation_id}，用户ID：{message_in.user_id}，"
@@ -347,6 +346,12 @@ async def send_message(
                 f"发送对话消息失败 - 对话ID：{message_in.conversation_id}，用户ID：{message_in.user_id}，原因：{msg}"
             )
             raise HTTPException(status_code=400, detail=msg)
+
+        # 调用AI接口，获取AI回复信息
+        ai_client = AIClient()
+        ai_message = await ai_client.get_ai_response(message=message_in.message)
+
+
 
         api_logger.info(
             f"发送对话消息成功 - 消息ID：{message.id}，对话ID：{message.conversation_id}，"

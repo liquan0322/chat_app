@@ -1,10 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
-# ========== 核心：导入日志实例 ==========
 from app.core.logging import api_logger, db_logger
-
 from app.db.session import get_async_db
 from app.crud.group_conversation import (
     GroupConversationCRUD, GroupMemberCRUD, GroupRobotCRUD,
@@ -357,7 +354,7 @@ async def send_group_message(
         message_in: GroupMessageCreate,
         db: AsyncSession = Depends(get_async_db)
 ):
-    # 消息内容脱敏（避免日志过长/敏感信息）
+    # 消息内容脱敏
     msg_content = message_in.message[:50] + "..." if len(message_in.message) > 50 else message_in.message
     sender_type = "人类" if message_in.is_human else "机器人"
     sender_info = f"发送者ID：{message_in.sender_id}" if message_in.is_human else f"机器人ID：{message_in.robot_id}"

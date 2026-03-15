@@ -1,10 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
-# ========== 核心：导入日志实例 ==========
 from app.core.logging import api_logger, db_logger
-
 from app.db.session import get_async_db
 from app.crud.robot import AiRobotCRUD  # 你的CRUD代码路径
 from app.schemas.robot import (
@@ -42,7 +39,6 @@ async def create_robot(
             data=AiRobotResponse.from_orm(robot)
         )
     except HTTPException:
-        # 已知业务异常直接抛出，不重复记录堆栈
         raise
     except Exception as e:
         api_logger.error(
@@ -81,7 +77,7 @@ async def get_robot_by_id(
         raise HTTPException(status_code=500, detail="查询AI机器人时发生服务器内部错误")
 
 
-# 3. 根据角色查询机器人
+# 3. 根据名字查询机器人
 @router.get("/role/{role}", response_model=ResponseModel, summary="根据角色查询机器人")
 async def get_robot_by_role(
         role: str,
