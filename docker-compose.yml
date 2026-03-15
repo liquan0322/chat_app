@@ -1,0 +1,84 @@
+services:
+  # ========== 数据库服务 ==========
+  postgres:
+    image: postgres:15-alpine
+    container_name: chat-app-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-chat_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-chat_password}
+      POSTGRES_DB: ${DB_NAME:-chat_app_db}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # 数据持久化
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - chat-app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-chat_user} -d ${DB_NAME:-chat_app_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== 后端服务 ==========
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chat-app-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy  # 等待数据库就绪
+    environment:
+      # 数据库配置
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-chat_user}:${DB_PASSWORD:-chat_password}@postgres:5432/${DB_NAME:-chat_app_db}
+      # FastAPI 配置
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      # AI API 配置
+      AI_API_BASE_URL: ${AI_API_BASE_URL:-https://api.openai.com/v1}
+      AI_API_KEY: ${AI_API_KEY:-your-ai-api-key-here}
+      AI_API_TIMEOUT: 30
+      AI_API_MAX_RETRIES: 2
+      # CORS 配置（允许前端域名）
+      BACKEND_CORS_ORIGINS: '["http://localhost:3000", "http://127.0.0.1:3000"]'
+      # 群组机器人配置
+      MAX_ROBOT_CONSECUTIVE_REPLIES: 3
+      ROBOT_RESPONSE_STRATEGY: random
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend_logs:/app/logs  # 日志持久化
+    networks:
+      - chat-app-network
+
+  # ========== 前端服务 ==========
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chat-app-frontend
+    restart: always
+    depends_on:
+      - backend  # 等待后端启动（无需健康检查，前端仅需后端服务存在）
+    environment:
+      # 前端环境变量（传递给 Vite）
+      VITE_API_BASE_URL: /api  # 反向代理路径，无需填IP
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"  # 前端暴露 3000 端口
+    networks:
+      - chat-app-network
+
+# ========== 数据卷（持久化） ==========
+volumes:
+  postgres_data:  # 数据库数据
+  backend_logs:   # 后端日志
+
+# ========== 自定义网络（服务互通） ==========
+networks:
+  chat-app-network:
+    driver: bridge

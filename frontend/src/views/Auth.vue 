@@ -1,0 +1,170 @@
+<template>
+  <div class="auth-container">
+    <el-card class="auth-card">
+      <div class="auth-tabs">
+        <el-button
+          :class="{ active: activeTab === 'login' }"
+          @click="activeTab = 'login'"
+        >
+          登录
+        </el-button>
+        <el-button
+          :class="{ active: activeTab === 'register' }"
+          @click="activeTab = 'register'"
+        >
+          注册
+        </el-button>
+      </div>
+
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="80px"
+        class="auth-form"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="form.username" />
+        </el-form-item>
+
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="form.password" type="password" />
+        </el-form-item>
+
+        <el-form-item v-if="activeTab === 'register'" label="确认密码" prop="confirmPassword">
+          <el-input v-model="form.confirmPassword" type="password" />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button
+            type="primary"
+            @click="handleSubmit"
+            class="auth-submit-btn"
+          >
+            {{ activeTab === 'login' ? '登录' : '注册' }}
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElCard, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus'
+import { login, register } from '@/api/auth'
+import { useUserStore } from '@/store'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+const activeTab = ref('login')
+const formRef = ref(null)
+
+const form = reactive({
+  username: '',
+  password: '',
+  confirmPassword: ''
+})
+
+const rules = reactive({
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 50, message: '长度在 3 到 50 个字符', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于 6 位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    {
+      validator: (rule, value, callback) => {
+        if (value !== form.password) {
+          callback(new Error('两次输入密码不一致!'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+})
+
+const handleSubmit = async () => {
+  if (!formRef.value) return
+
+  try {
+    await formRef.value.validate()
+
+    if (activeTab.value === 'login') {
+      // 登录
+      const res = await login({
+        username: form.username,
+        password: form.password
+      })
+
+      userStore.setUserInfo({
+        token: res.access_token,
+        username: form.username,
+        userId: res.user_id || ''
+      })
+
+      ElMessage.success('登录成功')
+      router.push('/chat')
+    } else {
+      // 注册
+      await register({
+        username: form.username,
+        password: form.password
+      })
+
+      ElMessage.success('注册成功，请登录')
+      activeTab.value = 'login'
+      form.password = ''
+      form.confirmPassword = ''
+    }
+  } catch (error) {
+    console.error('验证失败:', error)
+  }
+}
+</script>
+
+<style scoped>
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.auth-card {
+  width: 400px;
+  padding: 20px;
+}
+
+.auth-tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.auth-tabs .el-button {
+  flex: 1;
+  border: none;
+}
+
+.auth-tabs .el-button.active {
+  color: #409eff;
+  border-bottom: 2px solid #409eff;
+}
+
+.auth-form {
+  margin-top: 20px;
+}
+
+.auth-submit-btn {
+  width: 100%;
+}
+</style>
