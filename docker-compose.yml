@@ -57,21 +57,21 @@ services:
       - chat-app-network
 
   # ========== 前端服务 ==========
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: chat-app-frontend
-    restart: always
-    depends_on:
-      - backend  # 等待后端启动（无需健康检查，前端仅需后端服务存在）
-    environment:
-      # 前端环境变量（传递给 Vite）
-      VITE_API_BASE_URL: /api  # 反向代理路径，无需填IP
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"  # 前端暴露 3000 端口
-    networks:
-      - chat-app-network
+#  frontend:
+#    build:
+#      context: ./frontend
+#      dockerfile: Dockerfile
+#    container_name: chat-app-frontend
+#    restart: always
+#    depends_on:
+#      - backend  # 等待后端启动（无需健康检查，前端仅需后端服务存在）
+#    environment:
+#      # 前端环境变量（传递给 Vite）
+#      VITE_API_BASE_URL: /api  # 反向代理路径，无需填IP
+#    ports:
+#      - "${FRONTEND_PORT:-3000}:80"  # 前端暴露 3000 端口
+#    networks:
+#      - chat-app-network
 
 # ========== 数据卷（持久化） ==========
 volumes:
