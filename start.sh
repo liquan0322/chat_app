@@ -19,6 +19,6 @@ docker-compose exec backend alembic upgrade head
 docker-compose exec backend python -m app.scripts.init_robots
 
 echo "所有服务启动完成！"
-echo "前端访问地址：http://localhost:$(grep FRONTEND_PORT .env | cut -d'=' -f2)"
-echo "后端 API 文档：http://localhost:$(grep BACKEND_PORT .env | cut -d'=' -f2)/docs"
-echo "数据库地址：localhost:$(grep DB_PORT .env | cut -d'=' -f2)（用户：$(grep DB_USER .env | cut -d'=' -f2)）"
+#echo "前端访问地址：81.70.181.67:$(grep FRONTEND_PORT .env | cut -d'=' -f2)"
+echo "后端 API 文档：81.70.181.67:$(grep BACKEND_PORT .env | cut -d'=' -f2)/docs"
+echo "数据库地址：81.70.181.67:$(grep DB_PORT .env | cut -d'=' -f2)（用户：$(grep DB_USER .env | cut -d'=' -f2)）"
