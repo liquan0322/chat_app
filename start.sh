@@ -7,6 +7,8 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# 停止之前服务
+docker-compose down -v
 # 启动所有服务
 docker-compose up -d
 
