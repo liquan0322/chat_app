@@ -23,8 +23,8 @@ RUN python -m venv /opt/venv \
 FROM python:3.11-slim AS runner
 
 # 设置非root用户（提升安全性）
-RUN useradd -m appuser
-USER appuser
+#RUN useradd -m appuser
+#USER appuser
 
 # 设置工作目录
 WORKDIR /app
