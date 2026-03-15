@@ -22,28 +22,35 @@ RUN python -m venv /opt/venv \
 # 运行阶段
 FROM python:3.11-slim AS runner
 
-# 设置非root用户（提升安全性）
-#RUN useradd -m appuser
-#USER appuser
+# 创建appuser并赋予/app目录权限（关键修复！）
+RUN useradd -m appuser \
+    && mkdir -p /app \
+    && chown -R appuser:appuser /app  # 赋予用户对/app目录的完整权限
 
-# 设置工作目录
+# 切换到非root用户
+USER appuser
+
+# 设置工作目录（固化，确保gunicorn基于此目录解析模块）
 WORKDIR /app
 
 # 复制虚拟环境
 COPY --from=builder /opt/venv /opt/venv
 
-# 复制项目代码
-COPY . .
+# 复制项目代码（切换用户后复制，确保文件归属正确）
+COPY --chown=appuser:appuser . .
 
 # 暴露端口
 EXPOSE 8000
 
 # 设置环境变量
 ENV PATH="/opt/venv/bin:$PATH"
-# 实时输出日志
 ENV PYTHONUNBUFFERED=1
-# 不生成pyc文件
 ENV PYTHONDONTWRITEBYTECODE=1
+# 新增：强制Python以/app为根目录解析模块（关键！）
+ENV PYTHONPATH="/app:${PYTHONPATH}"
 
-# 启动命令（生产环境使用gunicorn）
-CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000"]
+# 先验证模块是否可导入（提前暴露问题，便于调试）
+RUN python -c "import app.main; print('模块导入成功')" || echo "模块导入失败，请检查路径"
+
+# 启动命令（优化参数顺序，保持兼容性）
+CMD ["gunicorn", "--chdir", "/app", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000"]
