@@ -9,7 +9,17 @@ fi
 
 # 停止之前服务
 docker-compose down -v
-docker rmi chat_app-backend
+
+IMAGE_NAME="chat_app-backend"
+
+# 判断镜像是否存在
+if docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+  echo "镜像存在，开始删除..."
+  docker rmi -f "$IMAGE_NAME"
+else
+  echo "镜像不存在，跳过删除"
+fi
+
 # 启动所有服务
 docker-compose up -d
 
