@@ -23,12 +23,12 @@ RUN python -m venv /opt/venv \
 FROM python:3.11-slim AS runner
 
 # 创建appuser并赋予/app目录权限
-RUN useradd -m appuser \
-    && mkdir -p /app \
-    && chown -R appuser:appuser /app
+#RUN useradd -m appuser \
+#    && mkdir -p /app \
+#    && chown -R appuser:appuser /app
 
 # 切换到非root用户
-USER appuser
+#USER appuser
 
 # 设置工作目录
 WORKDIR /app
@@ -37,7 +37,8 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 # 复制项目代码
-COPY --chown=appuser:appuser . .
+#COPY --chown=appuser:appuser . .
+COPY  . .
 
 # 暴露端口
 EXPOSE 8000

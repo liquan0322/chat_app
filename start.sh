@@ -9,6 +9,7 @@ fi
 
 # 停止之前服务
 docker-compose down -v
+docker rmi chat_app-backend
 # 启动所有服务
 docker-compose up -d
 
@@ -17,8 +18,8 @@ echo "等待数据库初始化..."
 sleep 10
 
 # 初始化数据库（迁移+预设机器人）
-docker-compose exec backend alembic upgrade head
-docker-compose exec backend python -m app.scripts.init_robots
+#docker-compose exec backend alembic upgrade head
+#docker-compose exec backend python -m app.scripts.init_robots
 
 echo "所有服务启动完成！"
 #echo "前端访问地址：http://81.70.181.67:$(grep FRONTEND_PORT .env | cut -d'=' -f2)"
