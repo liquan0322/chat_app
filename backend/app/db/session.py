@@ -1,21 +1,20 @@
-# app/db/session.py (异步版本)
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-# ------------------------------
-# 异步数据库配置
-# PostgreSQL: asyncpg (推荐) → postgresql+asyncpg://user:password@host:port/dbname
+from app.core.config import AppSettings
 
-ASYNC_DATABASE_URL = "postgresql+asyncpg://postgres:123456@postgres:5432/postgres"
+settings = AppSettings()
+async_database_url = settings.db_url
 
-# 创建异步引擎
+# 创建异步数据库引擎
 async_engine = create_async_engine(
-    ASYNC_DATABASE_URL,
-    echo=False,  # 生产环境关闭echo，调试时可打开
-    pool_pre_ping=True,  # 连接池预检查，避免无效连接
-    pool_size=10,  # 连接池大小
-    max_overflow=20,  # 最大溢出连接数
+    async_database_url,
+    echo=settings.sqlalchemy_echo, # 从环境变量控制是否打印 SQL
+    pool_pre_ping=True,            # 检查连接有效性
+    pool_size=settings.sqlalchemy_pool_size,
+    max_overflow=settings.sqlalchemy_max_overflow,
 )
+
 
 # 创建异步会话工厂
 AsyncSessionLocal = sessionmaker(

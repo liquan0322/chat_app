@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, validator
+from pydantic_settings import SettingsConfigDict
 from typing import Optional, List, Union, Dict
 from datetime import datetime
 
@@ -24,9 +25,7 @@ class ConversationResponse(ConversationBase):
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
 
-    class Config:
-        from_attributes = True
-        orm_mode = True
+    model_config = SettingsConfigDict(from_attributes=True)
 
 # ------------------------------
 # 标签相关模型
@@ -45,9 +44,7 @@ class TagResponse(TagBase):
     id: int = Field(..., description="标签ID")
     created_at: datetime = Field(..., description="创建时间")
 
-    class Config:
-        from_attributes = True
-        orm_mode = True
+    model_config = SettingsConfigDict(from_attributes=True)
 
 # ------------------------------
 # 消息相关模型
@@ -70,9 +67,7 @@ class MessageResponse(MessageBase):
     id: int = Field(..., description="消息ID")
     created_at: datetime = Field(..., description="创建时间")
 
-    class Config:
-        from_attributes = True
-        orm_mode = True
+    model_config = SettingsConfigDict(from_attributes=True)
 
 # ------------------------------
 # 通用响应模型
@@ -88,61 +83,3 @@ class ResponseModel(BaseModel):
     ]] = Field(None, description="返回数据")
 
 
-
-# from fastapi import APIRouter, Depends, HTTPException
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from app.db.session import get_async_db
-# from app.crud.conversation import IndividualConversationCRUD
-# from app.schemas.conversation import (
-#     IndividualConversationCreate,
-#     IndividualConversationResponse,
-#     IndividualConversationQueryParams,
-#     IndividualConversationListResponse
-# )
-#
-# router = APIRouter(prefix="/conversations", tags=["个人对话"])
-#
-# # 异步创建个人对话
-# @router.post("/", response_model=IndividualConversationResponse)
-# async def create_individual_conversation(
-#     conversation_in: IndividualConversationCreate,
-#     db: AsyncSession = Depends(get_async_db)
-# ):
-#     """异步创建个人对话（Pydantic自动验证 + 异步CRUD）"""
-#     conversation, msg = await IndividualConversationCRUD.create_conversation(
-#         db,
-#         user_id=conversation_in.user_id,
-#         title=conversation_in.title
-#     )
-#     if not conversation:
-#         raise HTTPException(status_code=400, detail=msg)
-#     return conversation
-#
-# # 异步分页查询个人对话
-# @router.get("/", response_model=IndividualConversationListResponse)
-# async def list_individual_conversations(
-#     params: IndividualConversationQueryParams = Depends(),  # 自动验证查询参数
-#     db: AsyncSession = Depends(get_async_db)
-# ):
-#     """异步分页查询个人对话（支持标签筛选）"""
-#     # 异步CRUD查询
-#     conversations = await IndividualConversationCRUD.get_user_conversations(
-#         db,
-#         user_id=params.user_id,
-#         skip=params.skip,
-#         limit=params.limit
-#     )
-#     # 若有标签筛选，调用关联查询
-#     if params.tag:
-#         conversations = await IndividualConversationCRUD.get_conversations_by_tag(
-#             db,
-#             user_id=params.user_id,
-#             tag=params.tag
-#         )
-#     total = len(conversations)
-#     return {
-#         "total": total,
-#         "skip": params.skip,
-#         "limit": params.limit,
-#         "items": conversations
-#     }

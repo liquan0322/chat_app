@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, validator
+from pydantic_settings import SettingsConfigDict
 from typing import Optional, List, Union
 
 # 基础模型（公共字段）
@@ -28,9 +29,8 @@ class AiRobotUpdate(BaseModel):
 class AiRobotResponse(AiRobotBase):
     id: int = Field(..., description="机器人ID")
 
-    class Config:
-        from_attributes = True  # Pydantic V2 兼容ORM对象
-        orm_mode = True         # 兼容Pydantic V1
+    model_config = SettingsConfigDict(from_attributes=True)
+
 
 # 通用响应模型
 class ResponseModel(BaseModel):
@@ -39,44 +39,3 @@ class ResponseModel(BaseModel):
     data: Optional[Union[AiRobotResponse, List[AiRobotResponse], bool]] = Field(None, description="返回数据")
 
 
-# from fastapi import APIRouter, Depends
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from app.db.session import get_async_db
-# from app.crud.robot import AiRobotCRUD  # 你的异步CRUD
-#
-# router = APIRouter(prefix="/robots", tags=["ai-robots"])
-#
-# # 异步创建机器人接口
-# @router.post("/", response_model=AiRobotResponse)
-# async def create_robot(
-#     robot_in: AiRobotCreate,  # 直接使用优化后的模型
-#     db: AsyncSession = Depends(get_async_db)
-# ):
-#     robot, msg = await AiRobotCRUD.create_robot(
-#         db,
-#         name=robot_in.name,
-#         role=robot_in.role,  # 枚举自动转为字符串，适配数据库
-#         personality=robot_in.personality,
-#         response_template=robot_in.response_template
-#     )
-#     return robot
-#
-# # 异步分页查询机器人接口
-# @router.get("/", response_model=AiRobotListResponse)
-# async def list_robots(
-#     params: AiRobotQueryParams = Depends(),  # 查询参数自动验证
-#     db: AsyncSession = Depends(get_async_db)
-# ):
-#     # 异步CRUD查询
-#     robots = await AiRobotCRUD.get_all_robots(
-#         db,
-#         skip=params.skip,
-#         limit=params.limit
-#     )
-#     total = len(robots)  # 实际项目中需写count查询
-#     return {
-#         "total": total,
-#         "skip": params.skip,
-#         "limit": params.limit,
-#         "items": robots
-#     }
