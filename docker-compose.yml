@@ -24,7 +24,7 @@ services:
   # ========== 后端服务 ==========
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: chat-app-backend
     restart: always
