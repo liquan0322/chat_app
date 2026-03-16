@@ -50,4 +50,4 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 # 核心修改：直接用uvicorn启动（生产环境配置多进程）
 # 注意：把「app.main:app」换成你实际能启动的uvicorn命令中的路径（比如main:app）
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
