@@ -210,74 +210,31 @@ class GroupMessage(Base):
 
 
 -- 索引优化
+
     CREATE INDEX idx_individual_conversations_user_id ON individual_conversations(user_id);
+	
     CREATE INDEX idx_conversation_tags_tag_name ON conversation_tags(tag_name);
+	
     CREATE INDEX idx_individual_messages_conversation_id ON individual_messages(conversation_id);
+	
     CREATE INDEX idx_group_conversations_creator_id ON group_conversations(creator_id);
+	
     CREATE INDEX idx_group_members_group_id ON group_members(group_id);
+	
     CREATE INDEX idx_group_bots_group_id ON group_bots(group_id);
+	
     CREATE INDEX idx_group_messages_group_id ON group_messages(group_id);
+	
     CREATE INDEX idx_group_messages_created_at ON group_messages(created_at);
-2.2 设计考量
-标签存储：采用单独的 conversation_tags 表，支持多标签，通过唯一约束避免重复，便于按标签筛选
-权限隔离：所有表都通过外键关联到用户 ID，确保只能访问自己的数据
-群组防循环：通过 last_human_message_at 字段记录最后人类消息时间，机器人仅在有新人类消息时回复
-消息状态：个人消息表增加 status 字段，记录 AI 调用状态，保障数据一致性
-索引设计：为常用查询字段创建索引，优化标签筛选、消息查询等性能
+	
+3.2 设计考量
+
+	标签存储：采用单独的 conversation_tags 表，支持多标签，通过唯一约束避免重复，便于按标签筛选
+
+	权限隔离：所有表都通过外键关联到用户 ID，确保只能访问自己的数据
+
+	索引设计：为常用查询字段创建索引，优化标签筛选、消息查询等性能
 
 
-三、后端实现
-3.1 项目结构
-|-- LICENSE
-|-- README.md
-|-- backend
-|   |-- Dockerfile
-|   |-- alembic
-|   |   |-- __init__.py
-|   |   `-- env.py
-|   |-- app
-|   |   |-- api
-|   |   |   |-- __init__.py
-|   |   |   |-- auth.py
-|   |   |   |-- group_conversations.py
-|   |   |   |-- individual_conversations.py
-|   |   |   |-- robots.py
-|   |   |   `-- users.py
-|   |   |-- core
-|   |   |   |-- __init__.py
-|   |   |   |-- config.py
-|   |   |   |-- jwt_auth.py
-|   |   |   |-- logging.py
-|   |   |   `-- security.py
-|   |   |-- crud
-|   |   |   |-- __init__.py
-|   |   |   |-- group_conversation.py
-|   |   |   |-- individual_conversation.py
-|   |   |   |-- robot.py
-|   |   |   `-- user.py
-|   |   |-- db
-|   |   |   |-- __init__.py
-|   |   |   |-- base.py
-|   |   |   `-- session.py
-|   |   |-- logs
-|   |   |   |-- chat_app.log
-|   |   |   `-- chat_app_error.log
-|   |   |-- models
-|   |   |   |-- __init__.py
-|   |   |   |-- group_conversation.py
-|   |   |   |-- individual_conversation.py
-|   |   |   |-- robot.py
-|   |   |   `-- user.py
-|   |   |-- schemas
-|   |   |   |-- __init__.py
-|   |   |   |-- group_conversation.py
-|   |   |   |-- individual_conversation.py
-|   |   |   |-- robot.py
-|   |   |   `-- user.py
-|   |   `-- services
-|   |       |-- __init__.py
-|   |       `-- ai_client.py
-|   |-- main.py
-|   `-- requirements.txt
-|-- docker-compose.yml
-`-- start.sh
+
+
