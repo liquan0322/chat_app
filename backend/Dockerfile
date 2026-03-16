@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
-COPY requirements.txt .
+#COPY ./backend/requirements.txt .
 
 # 安装依赖到虚拟环境（减少镜像体积）
 RUN python -m venv /opt/venv \
