@@ -1,16 +1,13 @@
-# app/api/v1/auth_api.py
-from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from typing import Annotated
 # 导入 JWT 工具类、数据库会话、User 模型
 from app.core.jwt_auth import AsyncJWTAuth, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.db.session import get_async_db
 from app.models.user import User
 # 导入日志实例
-from app.core.logging import auth_logger  # 认证模块专属日志
+from app.core.logging import auth_logger
 
 # 创建路由实例
 router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
@@ -22,15 +19,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 AsyncSessionDep = Annotated[AsyncSession, Depends(get_async_db)]
 TokenDep = Annotated[str, Depends(oauth2_scheme)]
 
-
-
 # ------------------------------
 # 通用依赖：获取当前登录用户
 # ------------------------------
 async def get_current_user(
         token: TokenDep,
         db: AsyncSessionDep
-) -> User:
+):
     """通用依赖：验证token并返回当前用户"""
     try:
         user = await AsyncJWTAuth.get_current_user(db, token)
@@ -42,7 +37,7 @@ async def get_current_user(
             )
         return user
     except ValueError as e:
-        auth_logger.warning(f"用户认证失败: {str(e)} | token: {token[:20]}...")  # 脱敏日志
+        auth_logger.warning(f"用户认证失败: {str(e)} | token: {token[:20]}...")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
@@ -63,7 +58,7 @@ async def login_for_access_token(
     - form_data: 包含 username/password 的表单数据
     - 返回 access_token/refresh_token
     """
-    # 记录登录尝试（脱敏）
+    # 记录登录尝试
     auth_logger.info(f"用户登录尝试 | 用户名: {form_data.username}")
 
     # 验证用户名密码
@@ -87,7 +82,7 @@ async def login_for_access_token(
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 过期时间（秒）
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "user_info": {
             "id": user.id,
             "username": user.username,

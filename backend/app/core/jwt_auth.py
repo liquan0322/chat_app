@@ -1,4 +1,3 @@
-# app/core/jwt_auth.py
 import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
@@ -22,22 +21,22 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # ------------------------------
-# 核心 JWT 工具类（异步）
+# 核心 JWT 工具类
 # ------------------------------
 class AsyncJWTAuth:
     @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
+    def verify_password(plain_password: str, hashed_password: str):
         """验证明文密码与加密密码是否匹配"""
         return pwd_context.verify(plain_password, hashed_password)
 
     @staticmethod
-    def get_password_hash(password: str) -> str:
+    def get_password_hash(password: str):
         """生成密码的加密哈希值"""
         return pwd_context.hash(password)
 
     @staticmethod
-    def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-        """生成 JWT Token（同步，无 IO 操作）"""
+    def create_token(data: dict, expires_delta: Optional[timedelta] = None):
+        """生成 JWT Token"""
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
         to_encode.update({"exp": expire})
@@ -45,13 +44,13 @@ class AsyncJWTAuth:
         return encoded_jwt
 
     @classmethod
-    def create_access_token(cls, user_id: int) -> str:
+    def create_access_token(cls, user_id: int):
         """生成访问令牌"""
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         return cls.create_token(data={"sub": str(user_id)}, expires_delta=access_token_expires)
 
     @classmethod
-    def create_refresh_token(cls, user_id: int) -> str:
+    def create_refresh_token(cls, user_id: int):
         """生成刷新令牌"""
         refresh_token_expires = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         return cls.create_token(

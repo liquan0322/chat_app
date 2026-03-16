@@ -7,7 +7,7 @@ import sys
 # ===================== 基础配置 =====================
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent
-# 日志目录（自动创建）
+# 日志目录
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -38,7 +38,7 @@ SIMPLE_FORMAT = logging.Formatter(
 
 
 # ===================== 配置函数 =====================
-def setup_logger(name: str = "chat_app") -> logging.Logger:
+def setup_logger(name: str = "chat_app"):
     """
     配置标准Logger
     :param name: Logger名称
@@ -47,7 +47,7 @@ def setup_logger(name: str = "chat_app") -> logging.Logger:
     # 创建Logger（避免重复配置）
     logger = logging.getLogger(name)
     if logger.handlers:
-        return logger  # 已配置过，直接返回
+        return logger
 
     # 设置基础级别
     logger.setLevel(LOG_LEVEL_MAP.get(DEFAULT_LOG_LEVEL, logging.INFO))
