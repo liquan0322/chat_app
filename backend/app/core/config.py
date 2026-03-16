@@ -7,7 +7,7 @@ class AppSettings(BaseSettings):
     # -------------------------- 模型配置 --------------------------
     # 配置 .env 文件路径和编码
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parent.parent.parent.parent / ".env",
+        env_file=Path(__file__).resolve().parent.parent.parent / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,  # 环境变量名不区分大小写
         extra="ignore"  # 忽略未定义的环境变量
