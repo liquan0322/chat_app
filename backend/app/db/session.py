@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 # 异步数据库配置
 # PostgreSQL: asyncpg (推荐) → postgresql+asyncpg://user:password@host:port/dbname
 
-ASYNC_DATABASE_URL = "postgresql+asyncpg://postgres:123456@localhost:5432/postgres"
+ASYNC_DATABASE_URL = "postgresql+asyncpg://postgres:123456@postgres:5432/postgres"
 
 # 创建异步引擎
 async_engine = create_async_engine(
